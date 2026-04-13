@@ -1,0 +1,1807 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KURA — Bangalore</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=DM+Mono:wght@300;400&family=Jost:wght@200;300;400&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    :root {
+      --ink: #100e0c;
+      --paper: #f7f4ef;
+      --red: #b52c22;
+      --red-dim: #7a1e16;
+      --blush: #dba8a0;
+      --sakura: #f0d5d0;
+      --warm: #ede8e0;
+      --mist: #c4bbb0;
+      --rule: rgba(16, 14, 12, 0.06);
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'Jost', sans-serif;
+      font-weight: 300;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* ── 4% FILM GRAIN ── */
+    .grain {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      pointer-events: none;
+      opacity: 0.04;
+      mix-blend-mode: multiply;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    /* ── SHUTTER PAGE TRANSITION ── */
+    .page-transition {
+      position: fixed;
+      inset: 0;
+      background: var(--ink);
+      z-index: 9999;
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+      /* Closed state */
+      transition: clip-path 0.9s var(--ease);
+      pointer-events: none;
+    }
+
+    .page-transition.open {
+      clip-path: polygon(0 50%, 100% 50%, 100% 50%, 0 50%);
+      /* Opened state */
+    }
+
+    /* ── LIQUID BLOB CURSOR ── */
+    .cursor-blob {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 30px;
+      height: 30px;
+      background: var(--ink);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 10001;
+      transform-origin: center;
+      transform: translate(-50%, -50%);
+      transition: background 0.3s var(--ease), width 0.3s var(--ease), height 0.3s var(--ease);
+    }
+
+    .cursor-blob.magnetic {
+      width: 10px;
+      height: 10px;
+      background: var(--blush);
+    }
+
+    .cursor-blob.gallery-hover {
+      width: 110px;
+      height: 110px;
+      background: var(--red);
+    }
+
+    .cursor-text {
+      position: fixed;
+      top: 0;
+      left: 0;
+      color: var(--paper);
+      pointer-events: none;
+      z-index: 10002;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      transition: opacity 0.3s;
+      white-space: nowrap;
+    }
+
+    .cursor-blob.gallery-hover+.cursor-text {
+      opacity: 1;
+    }
+
+    /* ── FLOATING GLASS NAV ── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 800;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 4vw;
+      background: rgba(247, 244, 239, 0.2);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      border-bottom: 1px solid rgba(16, 14, 12, 0.03);
+      transform: translateY(0);
+      transition: transform 0.6s var(--ease), background 0.6s, border-color 0.6s;
+    }
+
+    nav.hidden {
+      transform: translateY(-100%);
+    }
+
+    nav.dark-nav {
+      background: rgba(16, 14, 12, 0.3);
+      border-bottom-color: rgba(255, 255, 255, 0.03);
+    }
+
+    .nav-logo {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 18px;
+      letter-spacing: 8px;
+      color: var(--ink);
+      text-decoration: none;
+      cursor: none;
+      transition: color 0.4s;
+    }
+
+    nav.dark-nav .nav-logo {
+      color: var(--paper);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 4vw;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--ink);
+      opacity: 0.4;
+      text-decoration: none;
+      cursor: none;
+      transition: opacity 0.3s, color 0.4s;
+    }
+
+    nav.dark-nav .nav-links a {
+      color: var(--paper);
+    }
+
+    .nav-links a:hover,
+    .nav-links a.active {
+      opacity: 1;
+    }
+
+    .nav-reserve {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--red);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(181, 44, 34, .3);
+      padding-bottom: 2px;
+      cursor: none;
+      transition: opacity 0.3s;
+    }
+
+    .nav-reserve:hover {
+      opacity: 0.6;
+    }
+
+    /* ── PAGE SYSTEM ── */
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    /* ── TYPOGRAPHY & WATERMARKS ── */
+    .watermark {
+      position: absolute;
+      font-family: 'Shippori Mincho', serif;
+      font-size: 28vw;
+      font-weight: 600;
+      line-height: 0.8;
+      color: rgba(16, 14, 12, 0.02);
+      z-index: 0;
+      pointer-events: none;
+      writing-mode: vertical-rl;
+    }
+
+    /* ══════════════════════════════════════
+   HOME PAGE - ASYMMETRICAL "MA" LAYOUT
+══════════════════════════════════════ */
+
+    /* HERO 3D */
+    .hero {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--warm);
+    }
+
+    #petalCanvas {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: absolute;
+      z-index: 2;
+      padding: 25vh 8vw;
+      pointer-events: none;
+    }
+
+    .hero-h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(60px, 9vw, 120px);
+      font-weight: 400;
+      line-height: 0.9;
+      color: var(--ink);
+      letter-spacing: -2px;
+    }
+
+    .hero-h1 em {
+      font-style: italic;
+      color: var(--red);
+    }
+
+    .hero-tech-data {
+      position: absolute;
+      bottom: 6vh;
+      left: 8vw;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 4px;
+      color: var(--ink);
+      opacity: 0.4;
+      text-transform: uppercase;
+    }
+
+    /* PHILOSOPHY - SCROLL TYPEWRITER */
+    .philosophy {
+      min-height: 150vh;
+      position: relative;
+      background: var(--ink);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      transition: background 0.8s;
+    }
+
+    .phil-sticky {
+      position: sticky;
+      top: 40vh;
+      max-width: 800px;
+      padding: 0 5vw;
+      text-align: center;
+    }
+
+    .phil-typewriter {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(34px, 5vw, 68px);
+      color: var(--paper);
+      line-height: 1.2;
+      letter-spacing: -1px;
+    }
+
+    /* KINETIC SERVICES SLIDER */
+    .services-section {
+      padding: 15vh 0;
+      background: var(--paper);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .sec-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(40px, 5vw, 70px);
+      font-weight: 400;
+      color: var(--ink);
+      margin-left: 8vw;
+      margin-bottom: 8vh;
+    }
+
+    .slider-container {
+      width: 100%;
+      cursor: grab;
+      overflow: hidden;
+      padding-bottom: 40px;
+    }
+
+    .slider-container:active {
+      cursor: grabbing;
+    }
+
+    .slider-track {
+      display: flex;
+      gap: 4vw;
+      padding: 0 8vw;
+      pointer-events: none;
+    }
+
+    .slide-card {
+      flex: 0 0 clamp(280px, 30vw, 450px);
+      aspect-ratio: 3/4;
+      position: relative;
+      overflow: hidden;
+      pointer-events: auto;
+    }
+
+    .slide-bg {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      filter: grayscale(100%) contrast(120%);
+      transition: filter 0.8s var(--ease), transform 0.8s var(--ease);
+    }
+
+    /* Simulated cinemagraphs */
+    .slide-card:nth-child(1) .slide-bg {
+      background-image: linear-gradient(45deg, #2a2520, #4a3b32);
+    }
+
+    .slide-card:nth-child(2) .slide-bg {
+      background-image: linear-gradient(135deg, #100e0c, #2a2520);
+    }
+
+    .slide-card:nth-child(3) .slide-bg {
+      background-image: radial-gradient(circle, #5c433b, #100e0c);
+    }
+
+    .slide-card:nth-child(4) .slide-bg {
+      background-image: linear-gradient(to top, #000000, #3a2b25);
+    }
+
+    .slide-card:hover .slide-bg {
+      filter: grayscale(0%) contrast(100%);
+      transform: scale(1.05);
+    }
+
+    .slide-content {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      padding: 40px 30px;
+      background: linear-gradient(to top, rgba(16, 14, 12, 0.9), transparent);
+      color: var(--paper);
+    }
+
+    .sc-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      font-weight: 400;
+    }
+
+    .sc-price {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      opacity: 0.6;
+      margin-top: 8px;
+      display: block;
+    }
+
+    /* MASTER'S GALLERY (STAGGERED REVEAL) */
+    .gallery-section {
+      padding: 15vh 8vw;
+      background: var(--warm);
+      position: relative;
+    }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 4vw;
+      margin-top: 10vh;
+    }
+
+    .master-card {
+      overflow: hidden;
+      position: relative;
+      cursor: none;
+    }
+
+    .master-card.reveal-target {
+      opacity: 0;
+      transform: translateY(80px);
+      transition: opacity 1s var(--ease), transform 1s var(--ease);
+    }
+
+    .master-card.reveal-target.vis {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Asymmetrical placement */
+    .master-card:nth-child(1) {
+      grid-column: 1 / 6;
+      aspect-ratio: 3/4;
+    }
+
+    .master-card:nth-child(2) {
+      grid-column: 8 / 13;
+      aspect-ratio: 4/5;
+      margin-top: 20vh;
+    }
+
+    .master-card:nth-child(3) {
+      grid-column: 3 / 8;
+      aspect-ratio: 1/1;
+      margin-top: 15vh;
+    }
+
+    .master-card:nth-child(4) {
+      grid-column: 9 / 13;
+      aspect-ratio: 3/4;
+      margin-top: -10vh;
+    }
+
+    .mc-img {
+      width: 100%;
+      height: 100%;
+      background: var(--mist);
+      transition: transform 0.6s var(--ease);
+      pointer-events: none;
+    }
+
+    .master-card:nth-child(1) .mc-img {
+      background: #d7ccc8;
+    }
+
+    .master-card:nth-child(2) .mc-img {
+      background: #bcaaa4;
+    }
+
+    .master-card:nth-child(3) .mc-img {
+      background: #a1887f;
+    }
+
+    .master-card:nth-child(4) .mc-img {
+      background: #8d6e63;
+    }
+
+    .master-card-info {
+      padding-top: 20px;
+    }
+
+    .mc-name {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 18px;
+      color: var(--ink);
+    }
+
+    /* ── LUXURY SLIDE-OVER BOOKING UI ── */
+    .book-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+      z-index: 900;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.8s var(--ease);
+    }
+
+    .book-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .book-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 100vw;
+      max-width: 540px;
+      height: 100vh;
+      background: var(--paper);
+      z-index: 901;
+      transform: translateX(100%);
+      transition: transform 0.8s var(--ease);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 10vh 4vw;
+    }
+
+    .book-panel.open {
+      transform: translateX(0);
+    }
+
+    .bp-close {
+      align-self: flex-end;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: none;
+      background: none;
+      border: none;
+      color: var(--ink);
+      margin-bottom: 8vh;
+    }
+
+    .bp-close:hover {
+      color: var(--red);
+    }
+
+    .bp-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 44px;
+      color: var(--ink);
+      line-height: 1.1;
+      margin-bottom: 6vh;
+    }
+
+    .bp-title em {
+      font-style: italic;
+      color: var(--blush);
+    }
+
+    .l-form .fg {
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    .l-form label {
+      display: block;
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--mist);
+      margin-bottom: 12px;
+    }
+
+    .l-form input,
+    .l-form select {
+      width: 100%;
+      border: none;
+      border-bottom: 1px solid rgba(16, 14, 12, 0.1);
+      background: transparent;
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      color: var(--ink);
+      padding-bottom: 12px;
+      outline: none;
+      transition: border-color 0.4s;
+      border-radius: 0;
+    }
+
+    .l-form input:focus,
+    .l-form select:focus {
+      border-bottom-color: var(--red);
+    }
+
+    .l-form button {
+      width: 100%;
+      padding: 24px 0;
+      border: none;
+      background: var(--ink);
+      color: var(--paper);
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-top: 20px;
+      cursor: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ink-bleed {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: var(--red);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: width 0.8s var(--ease), height 0.8s var(--ease);
+    }
+
+    .ink-bleed.active {
+      width: 400px;
+      height: 400px;
+    }
+
+    .l-form button span {
+      position: relative;
+      z-index: 1;
+    }
+
+    footer {
+      padding: 10vh 8vw 5vh;
+      background: var(--ink);
+      color: rgba(247, 244, 239, 0.3);
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+    }
+
+    /* ══════════════════════════════════════
+   PAGE: RITUALS — Split-Reveal Omakase
+══════════════════════════════════════ */
+    .rituals-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 100vh;
+    }
+
+    .rituals-visual {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: hidden;
+      background: linear-gradient(160deg, #1a1510, #2a2018 30%, #100e0c 70%, #0a0806);
+      background-size: 200% 200%;
+      animation: rit-shift 12s ease-in-out infinite alternate;
+    }
+
+    @keyframes rit-shift {
+      from {
+        background-position: 0% 0%;
+      }
+
+      to {
+        background-position: 100% 100%;
+      }
+    }
+
+    .rituals-visual::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 30% 40%, rgba(181, 44, 34, 0.08), transparent 60%);
+      transition: transform 0.8s var(--ease);
+    }
+
+    .rituals-visual .watermark {
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 40vw;
+      color: rgba(247, 244, 239, 0.02);
+      writing-mode: vertical-rl;
+    }
+
+    .rituals-menu {
+      padding: 20vh 6vw 15vh 5vw;
+    }
+
+    .rit-header {
+      margin-bottom: 10vh;
+    }
+
+    .rit-header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(40px, 5vw, 64px);
+      font-weight: 400;
+      color: var(--ink);
+      line-height: 1;
+    }
+
+    .rit-header h1 em {
+      font-style: italic;
+      color: var(--red);
+    }
+
+    .rit-header p {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--mist);
+      margin-top: 16px;
+    }
+
+    .rit-category {
+      margin-bottom: 8vh;
+    }
+
+    .rit-cat-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--red);
+      opacity: 0.6;
+      margin-bottom: 3vh;
+      display: block;
+    }
+
+    .rit-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 24px 0;
+      border-bottom: 1px solid var(--rule);
+      cursor: none;
+      transition: padding-left 0.5s var(--ease);
+    }
+
+    .rit-item:hover {
+      padding-left: 16px;
+    }
+
+    .rit-item-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      font-weight: 400;
+      color: var(--ink);
+      transition: color 0.3s;
+    }
+
+    .rit-item:hover .rit-item-name {
+      color: var(--red-dim);
+    }
+
+    .rit-item-sub {
+      font-family: 'Jost', sans-serif;
+      font-size: 12px;
+      color: var(--mist);
+      margin-top: 4px;
+    }
+
+    .rit-item-meta {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--mist);
+      white-space: nowrap;
+      text-align: right;
+    }
+
+    .rit-item-meta strong {
+      color: var(--ink);
+      font-weight: 400;
+    }
+
+    /* ══════════════════════════════════════
+   PAGE: JOURNAL — Masonry Broadsheet
+══════════════════════════════════════ */
+    .journal-page {
+      padding: 18vh 6vw 12vh;
+      background: var(--paper);
+      position: relative;
+      min-height: 100vh;
+    }
+
+    .journal-header {
+      margin-bottom: 10vh;
+    }
+
+    .journal-header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(44px, 6vw, 80px);
+      font-weight: 400;
+      color: var(--ink);
+    }
+
+    .journal-header h1 em {
+      font-style: italic;
+      color: var(--red);
+    }
+
+    .journal-header p {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--mist);
+      margin-top: 12px;
+    }
+
+    .masonry {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 3vw;
+    }
+
+    .j-entry {
+      overflow: hidden;
+      position: relative;
+      cursor: none;
+    }
+
+    .j-entry.w8 {
+      grid-column: span 8;
+    }
+
+    .j-entry.w4 {
+      grid-column: span 4;
+    }
+
+    .j-entry.w5 {
+      grid-column: span 5;
+    }
+
+    .j-entry.w7 {
+      grid-column: span 7;
+    }
+
+    .j-entry.w3 {
+      grid-column: span 3;
+    }
+
+    .j-img-wrap {
+      overflow: hidden;
+      aspect-ratio: 16/10;
+      position: relative;
+    }
+
+    .j-entry.w4 .j-img-wrap,
+    .j-entry.w3 .j-img-wrap {
+      aspect-ratio: 3/4;
+    }
+
+    .j-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: grayscale(100%) contrast(110%);
+      transition: transform 0.8s var(--ease), filter 0.6s var(--ease);
+    }
+
+    .j-entry:hover .j-img {
+      transform: scale(1.06);
+      filter: grayscale(60%) contrast(105%);
+    }
+
+    /* Simulated monochrome images */
+    .j-img.ji1 {
+      background: linear-gradient(135deg, #3a3028, #1a1510);
+    }
+
+    .j-img.ji2 {
+      background: linear-gradient(to bottom, #2a231c, #0a0806);
+    }
+
+    .j-img.ji3 {
+      background: radial-gradient(circle at 30% 40%, #4a3c30, #100e0c);
+    }
+
+    .j-img.ji4 {
+      background: linear-gradient(45deg, #100e0c, #352b22);
+    }
+
+    .j-img.ji5 {
+      background: linear-gradient(to right, #2a2018, #100e0c);
+    }
+
+    .j-body {
+      padding: 24px 0;
+    }
+
+    .j-timestamp {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--mist);
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .j-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(18px, 2vw, 28px);
+      font-weight: 400;
+      color: var(--ink);
+      line-height: 1.3;
+      margin-bottom: 8px;
+    }
+
+    .j-excerpt {
+      font-size: 13px;
+      line-height: 1.9;
+      color: rgba(16, 14, 12, 0.4);
+      max-width: 460px;
+    }
+
+    .j-read-more {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--red);
+      margin-top: 16px;
+      display: inline-block;
+      text-decoration: none;
+      cursor: none;
+      transition: opacity 0.3s;
+    }
+
+    .j-read-more:hover {
+      opacity: 0.5;
+    }
+
+    /* ══════════════════════════════════════
+   PAGE: SANCTUARY — Atmospheric Map
+══════════════════════════════════════ */
+    .sanctuary-page {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--paper);
+    }
+
+    .sanctuary-page .watermark {
+      right: -8vw;
+      bottom: -5vh;
+      font-size: 35vw;
+      color: rgba(16, 14, 12, 0.015);
+    }
+
+    .sanc-svg-wrap {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sanc-svg-wrap svg {
+      width: 90vw;
+      max-width: 1100px;
+      height: auto;
+    }
+
+    /* Pulsing KURA dot */
+    .kura-dot {
+      cursor: none;
+    }
+
+    .kura-dot .pulse {
+      animation: kura-pulse 2s ease-in-out infinite;
+      transform-origin: center;
+    }
+
+    @keyframes kura-pulse {
+
+      0%,
+      100% {
+        r: 6;
+        opacity: 0.3;
+      }
+
+      50% {
+        r: 14;
+        opacity: 0.08;
+      }
+    }
+
+    .kura-dot .core {
+      transition: r 0.4s var(--ease);
+    }
+
+    .kura-dot:hover .core {
+      r: 8;
+    }
+
+    /* Glassmorphic info card */
+    .sanc-card {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) translate(30px, -60px);
+      background: rgba(247, 244, 239, 0.75);
+      backdrop-filter: blur(20px) saturate(150%);
+      -webkit-backdrop-filter: blur(20px) saturate(150%);
+      border: 1px solid rgba(16, 14, 12, 0.05);
+      padding: 32px 28px;
+      width: 280px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
+    }
+
+    .sanc-card.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translate(-50%, -50%) translate(30px, -70px);
+    }
+
+    .sanc-card h3 {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 18px;
+      color: var(--ink);
+      margin-bottom: 12px;
+    }
+
+    .sanc-card p {
+      font-family: 'Jost', sans-serif;
+      font-size: 13px;
+      color: rgba(16, 14, 12, 0.5);
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+
+    .sanc-card .sanc-call {
+      display: inline-block;
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--paper);
+      background: var(--red);
+      padding: 10px 20px;
+      text-decoration: none;
+      cursor: none;
+      transition: background 0.3s;
+    }
+
+    .sanc-card .sanc-call:hover {
+      background: var(--red-dim);
+    }
+
+    .sanc-coords {
+      position: absolute;
+      bottom: 5vh;
+      left: 8vw;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--mist);
+      text-transform: uppercase;
+    }
+
+    @media(max-width:900px) {
+      .rituals-split {
+        grid-template-columns: 1fr;
+      }
+
+      .rituals-visual {
+        display: none;
+      }
+
+      .rituals-menu {
+        padding: 14vh 5vw 10vh;
+      }
+
+      .masonry {
+        grid-template-columns: 1fr;
+      }
+
+      .j-entry.w8,
+      .j-entry.w4,
+      .j-entry.w5,
+      .j-entry.w7,
+      .j-entry.w3 {
+        grid-column: span 1;
+      }
+
+      .nav-links {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="grain"></div>
+  <div class="page-transition" id="shutter"></div>
+
+  <!-- Custom Liquid Cursor -->
+  <div class="cursor-blob" id="cursorBlob"></div>
+  <div class="cursor-text" id="cursorText"></div>
+
+  <!-- Nav -->
+  <nav id="nav">
+    <a href="#" class="nav-logo mag" data-page="home">KURA</a>
+    <div class="nav-links">
+      <a href="#" class="mag active" data-page="home">Home</a>
+      <a href="#" class="mag" data-page="rituals">Rituals</a>
+      <a href="#" class="mag" data-page="journal">Journal</a>
+      <a href="#" class="mag" data-page="sanctuary">Sanctuary</a>
+    </div>
+    <a href="#" class="nav-reserve mag" onclick="openBooking(event)">Reserve</a>
+  </nav>
+
+  <!-- Page -->
+  <div class="page active" id="page-home">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="watermark" style="left: -10vw; top: 10vh;" data-speed="0.2">倉美</div>
+      <div class="hero-content">
+        <h1 class="hero-h1">The Art of<br><em>Stillness.</em></h1>
+      </div>
+      <div class="hero-tech-data">EST. 2018 — BLR, IN<br>12.9716° N, 77.5946° E</div>
+      <canvas id="petalCanvas"></canvas>
+    </section>
+
+    <!-- Philosophy Scroll Typewriter -->
+    <section class="philosophy" id="philosophy">
+      <div class="phil-sticky">
+        <div class="phil-typewriter" id="philText" data-text="Silence is not an absence. It is a service."></div>
+      </div>
+    </section>
+
+    <!-- Kinetic Services Slider -->
+    <section class="services-section">
+      <div class="watermark" style="right: -5vw; top: -5vh; color: rgba(16,14,12,0.03);" data-speed="-0.1">技</div>
+      <h2 class="sec-title">Disciplines</h2>
+
+      <div class="slider-container" id="slider">
+        <div class="slider-track" id="sliderTrack">
+          <div class="slide-card mag-tilt">
+            <div class="slide-bg slide-bg-1"></div>
+            <div class="slide-content"><span class="sc-name">Hair Couture</span><span class="sc-price">from
+                ₹1,200</span></div>
+          </div>
+          <div class="slide-card mag-tilt">
+            <div class="slide-bg slide-bg-2"></div>
+            <div class="slide-content"><span class="sc-name">Skin Rituals</span><span class="sc-price">from
+                ₹2,500</span></div>
+          </div>
+          <div class="slide-card mag-tilt">
+            <div class="slide-bg slide-bg-3"></div>
+            <div class="slide-content"><span class="sc-name">Nail Artistry</span><span class="sc-price">from ₹800</span>
+            </div>
+          </div>
+          <div class="slide-card mag-tilt">
+            <div class="slide-bg slide-bg-4"></div>
+            <div class="slide-content"><span class="sc-name">Ayurvedic Spa</span><span class="sc-price">from
+                ₹3,000</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Staggered Master's Gallery -->
+    <section class="gallery-section">
+      <h2 class="sec-title">The Masters</h2>
+      <div class="gallery-grid" id="galleryGrid">
+        <div class="master-card reveal-target mag-gallery" data-spec="Creative Director">
+          <div class="mc-img"></div>
+          <div class="master-card-info"><span class="mc-name">Priya Nair</span></div>
+        </div>
+        <div class="master-card reveal-target mag-gallery" data-spec="Skin Specialist">
+          <div class="mc-img"></div>
+          <div class="master-card-info"><span class="mc-name">Aisha Malik</span></div>
+        </div>
+        <div class="master-card reveal-target mag-gallery" data-spec="Senior Stylist">
+          <div class="mc-img"></div>
+          <div class="master-card-info"><span class="mc-name">Rohan Shetty</span></div>
+        </div>
+        <div class="master-card reveal-target mag-gallery" data-spec="Bridal Artist">
+          <div class="mc-img"></div>
+          <div class="master-card-info"><span class="mc-name">Meera Rao</span></div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      © 2026 KURA Studio, Bangalore.
+    </footer>
+  </div>
+
+  <!-- About Page -->
+  <div class="page" id="page-about">
+    <section class="hero" style="background: var(--paper);">
+      <div class="hero-content" style="padding-top: 35vh; max-width: 800px; pointer-events: auto;">
+        <h1 class="hero-h1">The Dummy<br><em>Data.</em></h1>
+        <p style="margin-top: 40px; font-size: 24px; line-height: 1.6; opacity: 0.8;">
+          This is a placeholder page full of arbitrary text designed purely to demonstrate our new single-page
+          application router and mechanical shutter transitions. Welcome to the other side.
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Gallery Page -->
+  <div class="page" id="page-gallery">
+    <section class="hero" style="background: var(--ink); color: var(--paper);">
+      <div class="hero-content" style="padding-top: 35vh; pointer-events: auto;">
+        <h1 class="hero-h1" style="color: var(--paper);">Dumb Data<br><em style="color: var(--mist);">Gallery.</em></h1>
+        <pre style="margin-top: 40px; font-family: 'DM Mono', monospace; opacity: 0.6; font-size: 16px;">
+[
+  { id: 1, title: "Lorem", status: "zen" },
+  { id: 2, title: "Ipsum", status: "aesthetic" },
+  { id: 3, title: "Dolor", status: "wabi-sabi" }
+]
+      </pre>
+      </div>
+    </section>
+  </div>
+
+  <!-- ══ RITUALS PAGE ══ -->
+  <div class="page" id="page-rituals">
+    <section class="rituals-split">
+      <div class="rituals-visual" id="ritualsVisual">
+        <div class="watermark" data-speed="0.2">静</div>
+      </div>
+      <div class="rituals-menu">
+        <div class="rit-header">
+          <h1>The<br><em>Rituals.</em></h1>
+          <p>An omakase of care — trust the process</p>
+        </div>
+
+        <div class="rit-category">
+          <span class="rit-cat-label">Hair Couture</span>
+          <div class="rit-item mag" data-rit>
+            <div><span class="rit-item-name">Precision Cut</span>
+              <p class="rit-item-sub">Consultation, wash, cut, blow-dry</p>
+            </div>
+            <div class="rit-item-meta">45 MIN // <strong>₹1,200</strong></div>
+          </div>
+          <div class="rit-item mag" data-rit>
+            <div><span class="rit-item-name">Colour Correction</span>
+              <p class="rit-item-sub">Full-spectrum rebalance, toner, gloss finish</p>
+            </div>
+            <div class="rit-item-meta">120 MIN // <strong>₹6,500</strong></div>
+          </div>
+          <div class="rit-item mag" data-rit>
+            <div><span class="rit-item-name">Keratin Restoration</span>
+              <p class="rit-item-sub">Brazilian smoothing, deep protein bond repair</p>
+            </div>
+            <div class="rit-item-meta">150 MIN // <strong>₹8,000</strong></div>
+          </div>
+          <div class="rit-item mag" data-rit>
+            <div><span class="rit-item-name">Scalp Detox</span>
+              <p class="rit-item-sub">Micro-exfoliation, charcoal purification, oil infusion</p>
+            </div>
+            <div class="rit-item-meta">60 MIN // <strong>₹2,200</strong></div>
+          </div>
+        </div>
+
+        <div class="rit-category">
+          <span class="rit-cat-label">Skin Rituals</span>
+          <div class="rit-item mag" data-rit>
+            <div><span class="rit-item-name">HydraFacial MD</span>
+              <p class="rit-item-sub">Deep cleanse, extract, hydrate — medical grade</p>
+            </div>
+            <div class="rit-item-meta">75 MIN // <strong>₹4,500</strong></div>
+          </div>
+          <div class="rit-item mag" data-rit>
+            <div><span class="rit-item-name">LED Light Therapy</span>
+              <p class="rit-item-sub">Red/blue wavelength, collagen stimulation</p>
+            </div>
+            <div class="rit-item-meta">40 MIN // <strong>₹2,800</strong></div>
+          </div>
+          <div class="rit-item mag" data-rit>
+            <div><span class="rit-item-name">Gold Radiance Facial</span>
+              <p class="rit-item-sub">24K gold mask, vitamin C serum, cryo-roller</p>
+            </div>
+            <div class="rit-item-meta">90 MIN // <strong>₹5,500</strong></div>
+          </div>
+        </div>
+
+        <div class="rit-category">
+          <span class="rit-cat-label">Ayurvedic Spa</span>
+          <div class="rit-item mag" data-rit>
+            <div><span class="rit-item-name">Abhyanga</span>
+              <p class="rit-item-sub">Full-body warm oil massage, Kerala tradition</p>
+            </div>
+            <div class="rit-item-meta">90 MIN // <strong>₹4,500</strong></div>
+          </div>
+          <div class="rit-item mag" data-rit>
+            <div><span class="rit-item-name">Shirodhara</span>
+              <p class="rit-item-sub">Warm sesame oil, third-eye stream, deep stillness</p>
+            </div>
+            <div class="rit-item-meta">60 MIN // <strong>₹3,800</strong></div>
+          </div>
+          <div class="rit-item mag" data-rit>
+            <div><span class="rit-item-name">Udvartana Scrub</span>
+              <p class="rit-item-sub">Herbal powder exfoliation, lymphatic stimulation</p>
+            </div>
+            <div class="rit-item-meta">75 MIN // <strong>₹3,200</strong></div>
+          </div>
+        </div>
+
+        <div class="rit-category">
+          <span class="rit-cat-label">Bridal</span>
+          <div class="rit-item mag" data-rit>
+            <div><span class="rit-item-name">The Full Suite</span>
+              <p class="rit-item-sub">Trial + day-of: hair, makeup, draping, touch-ups</p>
+            </div>
+            <div class="rit-item-meta">FULL DAY // <strong>₹45,000</strong></div>
+          </div>
+          <div class="rit-item mag" data-rit>
+            <div><span class="rit-item-name">Pre-Wedding Ritual</span>
+              <p class="rit-item-sub">3-session skin prep, haldi ceremony styling</p>
+            </div>
+            <div class="rit-item-meta">3 SESSIONS // <strong>₹18,000</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <footer>© 2026 KURA Studio, Bangalore.</footer>
+  </div>
+
+  <!-- ══ JOURNAL PAGE ══ -->
+  <div class="page" id="page-journal">
+    <section class="journal-page">
+      <div class="watermark" style="right: -8vw; top: 5vh;" data-speed="0.2">美</div>
+      <div class="journal-header">
+        <h1>The<br><em>Journal.</em></h1>
+        <p>Dispatches from the studio — culture, craft, quiet rebellion</p>
+      </div>
+
+      <div class="masonry">
+        <article class="j-entry w8">
+          <div class="j-img-wrap">
+            <div class="j-img ji1"></div>
+          </div>
+          <div class="j-body">
+            <span class="j-timestamp">Published: 12.04.26 | 21:45 IST</span>
+            <h3 class="j-title">Why We Stopped Playing Music</h3>
+            <p class="j-excerpt">Eighteen months ago we removed the speakers. The silence was terrifying at first. Then
+              it became the thing people came back for. A reflection on the acoustic identity of luxury spaces.</p>
+            <a href="#" class="j-read-more mag">Read →</a>
+          </div>
+        </article>
+
+        <article class="j-entry w4">
+          <div class="j-img-wrap">
+            <div class="j-img ji2"></div>
+          </div>
+          <div class="j-body">
+            <span class="j-timestamp">Published: 28.03.26 | 14:20 IST</span>
+            <h3 class="j-title">The Scissors We Use</h3>
+            <p class="j-excerpt">A short essay on Yasaka shears, hand-forged in Osaka, and why the right tool changes
+              everything.</p>
+            <a href="#" class="j-read-more mag">Read →</a>
+          </div>
+        </article>
+
+        <article class="j-entry w5">
+          <div class="j-img-wrap">
+            <div class="j-img ji3"></div>
+          </div>
+          <div class="j-body">
+            <span class="j-timestamp">Published: 15.03.26 | 09:10 IST</span>
+            <h3 class="j-title">Kerala Oil: From Farm to Scalp</h3>
+            <p class="j-excerpt">We traced our cold-pressed coconut oil back to the family farm in Wayanad. What we
+              found was a 200-year-old pressing technique that refuses to modernize.</p>
+            <a href="#" class="j-read-more mag">Read →</a>
+          </div>
+        </article>
+
+        <article class="j-entry w7">
+          <div class="j-img-wrap">
+            <div class="j-img ji4"></div>
+          </div>
+          <div class="j-body">
+            <span class="j-timestamp">Published: 02.03.26 | 18:30 IST</span>
+            <h3 class="j-title">On the Art of Not Talking</h3>
+            <p class="j-excerpt">Most salons insist on conversation. We trained our team to read the room — and
+              sometimes, to say nothing at all. This is the hardest skill we teach.</p>
+            <a href="#" class="j-read-more mag">Read →</a>
+          </div>
+        </article>
+
+        <article class="j-entry w3">
+          <div class="j-img-wrap">
+            <div class="j-img ji5"></div>
+          </div>
+          <div class="j-body">
+            <span class="j-timestamp">Published: 18.02.26 | 11:00 IST</span>
+            <h3 class="j-title">400 Brides Later</h3>
+            <p class="j-excerpt">Meera Rao reflects on a decade of bridal work and the one request she always refuses.
+            </p>
+            <a href="#" class="j-read-more mag">Read →</a>
+          </div>
+        </article>
+      </div>
+    </section>
+    <footer>© 2026 KURA Studio, Bangalore.</footer>
+  </div>
+
+  <!-- ══ SANCTUARY PAGE ══ -->
+  <div class="page" id="page-sanctuary">
+    <section class="sanctuary-page">
+      <div class="watermark" style="right: -8vw; bottom: -5vh;" data-speed="0.2">空</div>
+
+      <div class="sanc-svg-wrap">
+        <svg viewBox="0 0 1000 600" xmlns="http://www.w3.org/2000/svg">
+          <!-- Stylized Indiranagar map -->
+          <rect width="1000" height="600" fill="var(--paper)" />
+          <!-- Major roads -->
+          <line x1="0" y1="300" x2="1000" y2="300" stroke="var(--ink)" stroke-width="2.5" opacity="0.12" />
+          <line x1="0" y1="200" x2="1000" y2="200" stroke="var(--ink)" stroke-width="1" opacity="0.06" />
+          <line x1="0" y1="400" x2="1000" y2="400" stroke="var(--ink)" stroke-width="1" opacity="0.06" />
+          <line x1="500" y1="0" x2="500" y2="600" stroke="var(--ink)" stroke-width="2" opacity="0.1" />
+          <line x1="300" y1="0" x2="300" y2="600" stroke="var(--ink)" stroke-width="1" opacity="0.06" />
+          <line x1="700" y1="0" x2="700" y2="600" stroke="var(--ink)" stroke-width="1" opacity="0.06" />
+          <!-- Cross streets -->
+          <line x1="150" y1="150" x2="850" y2="150" stroke="var(--ink)" stroke-width="0.5" opacity="0.04" />
+          <line x1="100" y1="250" x2="900" y2="250" stroke="var(--ink)" stroke-width="0.5" opacity="0.04" />
+          <line x1="150" y1="350" x2="850" y2="350" stroke="var(--ink)" stroke-width="0.5" opacity="0.04" />
+          <line x1="100" y1="450" x2="900" y2="450" stroke="var(--ink)" stroke-width="0.5" opacity="0.04" />
+          <line x1="200" y1="0" x2="200" y2="600" stroke="var(--ink)" stroke-width="0.5" opacity="0.04" />
+          <line x1="400" y1="0" x2="400" y2="600" stroke="var(--ink)" stroke-width="0.5" opacity="0.04" />
+          <line x1="600" y1="0" x2="600" y2="600" stroke="var(--ink)" stroke-width="0.5" opacity="0.04" />
+          <line x1="800" y1="0" x2="800" y2="600" stroke="var(--ink)" stroke-width="0.5" opacity="0.04" />
+          <!-- Blocks -->
+          <rect x="310" y="210" width="80" height="80" rx="2" fill="var(--ink)" opacity="0.03" />
+          <rect x="410" y="310" width="80" height="80" rx="2" fill="var(--ink)" opacity="0.03" />
+          <rect x="510" y="210" width="120" height="80" rx="2" fill="var(--ink)" opacity="0.025" />
+          <rect x="210" y="310" width="80" height="80" rx="2" fill="var(--ink)" opacity="0.025" />
+          <rect x="610" y="310" width="80" height="80" rx="2" fill="var(--ink)" opacity="0.03" />
+          <rect x="710" y="210" width="60" height="80" rx="2" fill="var(--ink)" opacity="0.02" />
+          <!-- Road labels -->
+          <text x="50" y="295" font-family="'DM Mono',monospace" font-size="8" fill="var(--ink)" opacity="0.15"
+            letter-spacing="3">100 FEET ROAD</text>
+          <text x="505" y="120" font-family="'DM Mono',monospace" font-size="7" fill="var(--ink)" opacity="0.12"
+            letter-spacing="2" transform="rotate(-90, 505, 120)">12TH MAIN</text>
+          <text x="50" y="195" font-family="'DM Mono',monospace" font-size="7" fill="var(--ink)" opacity="0.1"
+            letter-spacing="2">CMH ROAD</text>
+          <text x="305" y="145" font-family="'DM Mono',monospace" font-size="6" fill="var(--ink)" opacity="0.1"
+            letter-spacing="2" transform="rotate(-90, 305, 145)">5TH MAIN</text>
+          <!-- Landmark text -->
+          <text x="640" y="270" font-family="'DM Mono',monospace" font-size="6" fill="var(--ink)" opacity="0.08"
+            letter-spacing="2">TOIT</text>
+          <text x="240" y="270" font-family="'DM Mono',monospace" font-size="6" fill="var(--ink)" opacity="0.08"
+            letter-spacing="2">BDA COMPLEX</text>
+          <!-- KURA pulsing dot -->
+          <g class="kura-dot" id="kuraDot" transform="translate(420, 260)">
+            <circle class="pulse" cx="0" cy="0" r="6" fill="var(--red)" opacity="0.3" />
+            <circle class="pulse" cx="0" cy="0" r="6" fill="var(--red)" opacity="0.15" style="animation-delay: 0.5s;" />
+            <circle class="core" cx="0" cy="0" r="4" fill="var(--red)" />
+            <text x="12" y="3" font-family="'DM Mono',monospace" font-size="7" fill="var(--red)" letter-spacing="2"
+              opacity="0.8">KURA</text>
+          </g>
+        </svg>
+
+        <div class="sanc-card" id="sancCard">
+          <h3>KURA Studio</h3>
+          <p>14, 5th Main Road<br>Indiranagar, Bangalore 560038<br><br>Mon–Sun, 10am–8pm</p>
+          <a href="tel:+918041235678" class="sanc-call mag">Call +91 80 4123 5678</a>
+        </div>
+      </div>
+
+      <div class="sanc-coords">12.9716° N, 77.5946° E — Indiranagar, BLR</div>
+    </section>
+  </div>
+
+  <!-- Slide-over Booking -->
+  <div class="book-overlay" id="bookOverlay" onclick="closeBooking()"></div>
+  <div class="book-panel" id="bookPanel">
+    <button class="bp-close mag" onclick="closeBooking()">Close ✕</button>
+    <h2 class="bp-title">Reserve your<br><em>Moment.</em></h2>
+    <form class="l-form" onsubmit="handleBook(event)">
+      <div class="fg"><label>Name</label><input type="text" required></div>
+      <div class="fg"><label>Phone</label><input type="tel" required></div>
+      <div class="fg"><label>Discipline</label>
+        <select required>
+          <option>Hair Couture</option>
+          <option>Skin Ritual</option>
+          <option>Ayurvedic Spa</option>
+        </select>
+      </div>
+      <button type="submit" class="mag">
+        <div class="ink-bleed" id="inkBleed"></div>
+        <span id="btnText">Confirm Appointment</span>
+      </button>
+    </form>
+  </div>
+
+  <script>
+    /* ── LIQUID BLOB CURSOR ── */
+    const blob = document.getElementById('cursorBlob');
+    const cText = document.getElementById('cursorText');
+    let mx = window.innerWidth / 2, my = window.innerHeight / 2;
+    let currX = mx, currY = my;
+    let velX = 0, velY = 0;
+    let isHovering = false;
+
+    document.addEventListener('mousemove', e => {
+      mx = e.clientX; my = e.clientY;
+    });
+
+    // Physics loop
+    function renderCursor() {
+      // Smooth follow
+      const dx = mx - currX;
+      const dy = my - currY;
+      currX += dx * 0.15;
+      currY += dy * 0.15;
+
+      // Velocity magnitude for stretch
+      const speed = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx);
+
+      // Squish physics
+      const squish = Math.min(speed * 0.005, 0.4);
+      const scaleX = 1 + squish;
+      const scaleY = 1 - squish * 0.5;
+
+      if (!isHovering) {
+        blob.style.transform = `translate(-50%, -50%) translate(${currX}px, ${currY}px) rotate(${angle}rad) scaleX(${scaleX}) scaleY(${scaleY})`;
+      } else {
+        // Solid circle on hover, no stretch
+        blob.style.transform = `translate(-50%, -50%) translate(${currX}px, ${currY}px) rotate(0rad) scaleX(1) scaleY(1)`;
+      }
+
+      cText.style.transform = `translate(-50%, -50%) translate(${currX}px, ${currY}px)`;
+      requestAnimationFrame(renderCursor);
+    }
+    renderCursor();
+
+    // Magnetic Targets
+    document.querySelectorAll('.mag').forEach(el => {
+      el.addEventListener('mouseenter', () => { isHovering = true; blob.classList.add('magnetic'); });
+      el.addEventListener('mouseleave', () => { isHovering = false; blob.classList.remove('magnetic'); });
+    });
+    // Gallery Reveal Targets
+    document.querySelectorAll('.mag-gallery').forEach(el => {
+      el.addEventListener('mouseenter', e => {
+        isHovering = true;
+        blob.classList.add('gallery-hover');
+        cText.textContent = e.currentTarget.dataset.spec;
+      });
+      el.addEventListener('mouseleave', () => {
+        isHovering = false;
+        blob.classList.remove('gallery-hover');
+      });
+    });
+
+    /* ── SHUTTER PAGE LOAD & ROUTER ── */
+    const shutter = document.getElementById('shutter');
+
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        shutter.classList.add('open');
+      }, 100);
+    });
+
+    let currentPage = 'home';
+    document.addEventListener('click', e => {
+      const link = e.target.closest('[data-page]');
+      if (!link) return;
+      e.preventDefault();
+      const targetPage = link.dataset.page;
+      if (targetPage === currentPage) return;
+
+      // Close the shutter mechanical wipe
+      shutter.classList.remove('open');
+
+      // Wait for wipe to complete, then swap pages
+      setTimeout(() => {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById('page-' + targetPage).classList.add('active');
+        currentPage = targetPage;
+        window.scrollTo(0, 0);
+
+        // Update nav colors
+        document.querySelectorAll('.nav-links a').forEach(a => {
+          a.classList.toggle('active', a.dataset.page === targetPage);
+        });
+
+        // Open the shutter again
+        shutter.classList.add('open');
+      }, 900);
+    });
+
+    /* ── FLOATING NAV LOGIC ── */
+    let lastScrollY = window.scrollY;
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => {
+      const currentY = window.scrollY;
+      // Dynamic color
+      if (currentY > window.innerHeight * 0.5) nav.classList.add('dark-nav');
+      else nav.classList.remove('dark-nav');
+      // Hide on scroll down
+      if (currentY > lastScrollY && currentY > 100) nav.classList.add('hidden');
+      else nav.classList.remove('hidden');
+      lastScrollY = currentY;
+    });
+
+    /* ── WEBGL SAKURA + WIND PHYSICS ── */
+    const canvas = document.getElementById('petalCanvas');
+    const scene = new THREE.Scene();
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    function resize3D() {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    }
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
+    camera.position.z = 100;
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85); scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffdee9, 1.2); dirLight.position.set(20, 50, 40); scene.add(dirLight);
+
+    const petals = [];
+    function createPetalGeometry() {
+      const shape = new THREE.Shape();
+      shape.moveTo(0, 0); shape.bezierCurveTo(2.5, 4.5, 4.5, 3.5, 0, 8.5); shape.bezierCurveTo(-4.5, 3.5, -2.5, 4.5, 0, 0);
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.15, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 });
+      geo.computeBoundingBox(); const offset = geo.boundingBox.getCenter(new THREE.Vector3()); geo.translate(-offset.x, -offset.y, -offset.z);
+      const posAttribute = geo.attributes.position; const v = new THREE.Vector3();
+      for (let i = 0; i < posAttribute.count; i++) {
+        v.fromBufferAttribute(posAttribute, i); v.z -= Math.sin((v.y + offset.y) * 0.4) * 1.8; posAttribute.setXYZ(i, v.x, v.y, v.z);
+      }
+      geo.computeVertexNormals(); return geo;
+    }
+    const geo = createPetalGeometry();
+    const mats = [0xffb6c1, 0xffc0cb, 0xffd1dc, 0xffe4e1].map(c => new THREE.MeshPhongMaterial({ color: c, shininess: 35, side: THREE.DoubleSide, transparent: true, opacity: 0.85 }));
+
+    const pGroup = new THREE.Group();
+    for (let i = 0; i < 60; i++) {
+      const mesh = new THREE.Mesh(geo, mats[Math.floor(Math.random() * mats.length)]);
+      mesh.position.set((Math.random() - 0.5) * 200, (Math.random() - 0.5) * 200, (Math.random() - 0.5) * 80);
+      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      mesh.scale.setScalar(0.35 + Math.random() * 0.45);
+      pGroup.add(mesh);
+      petals.push({ mesh, vx: (Math.random() - 0.5) * 0.08, vy: -0.15 - Math.random() * 0.25, rotX: Math.random() * 0.05, rotY: Math.random() * 0.05, wOff: Math.random() * Math.PI * 2 });
+    }
+    scene.add(pGroup);
+
+    let windX = 0; let windY = 0;
+    let lastMx = mx; let lastMy = my;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      // Calculate raw mouse velocity for wind
+      const mdx = mx - lastMx; const mdy = my - lastMy;
+      lastMx = mx; lastMy = my;
+
+      // Inject into wind engine
+      windX += mdx * 0.0005;
+      windY += mdy * 0.0005;
+
+      // Friction
+      windX *= 0.92;
+      windY *= 0.92;
+
+      const time = Date.now() * 0.001;
+      petals.forEach(p => {
+        p.mesh.position.x += p.vx + Math.sin(time + p.wOff) * 0.05 + windX;
+        p.mesh.position.y += p.vy - windY;
+        p.mesh.rotation.x += p.rotX + windY * 0.1;
+        p.mesh.rotation.y += p.rotY + windX * 0.1;
+
+        if (p.mesh.position.y < -100) { p.mesh.position.y = 100; p.mesh.position.x = (Math.random() - 0.5) * 200; }
+      });
+
+      // Subtle base parallax
+      pGroup.position.x += (((mx / window.innerWidth) * 2 - 1) * 5 - pGroup.position.x) * 0.05;
+      pGroup.position.y += ((-(my / window.innerHeight) * 2 + 1) * 5 - pGroup.position.y) * 0.05;
+
+      renderer.render(scene, camera);
+    }
+    resize3D(); animate(); window.addEventListener('resize', resize3D);
+
+    /* ── KINETIC SLIDER ── */
+    const slider = document.getElementById('slider');
+    const track = document.getElementById('sliderTrack');
+    let isDown = false; let startX; let scrollLeft;
+    slider.addEventListener('mousedown', e => { isDown = true; startX = e.pageX - slider.offsetLeft; scrollLeft = slider.scrollLeft; });
+    slider.addEventListener('mouseleave', () => { isDown = false; });
+    slider.addEventListener('mouseup', () => { isDown = false; });
+    slider.addEventListener('mousemove', e => {
+      if (!isDown) return;
+      e.preventDefault();
+      const x = e.pageX - slider.offsetLeft;
+      const walk = (x - startX) * 2; // speed
+      slider.scrollLeft = scrollLeft - walk;
+    });
+
+    /* ── PARALLAX CARDS ── */
+    document.querySelectorAll('.mag-tilt').forEach(el => {
+      el.addEventListener('mousemove', e => {
+        const rect = el.getBoundingClientRect();
+        const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+        const xc = rect.width / 2; const yc = rect.height / 2;
+        const dx = x - xc; const dy = y - yc;
+        el.children[0].style.transform = `perspective(1000px) rotateX(${-dy / 20}deg) rotateY(${dx / 20}deg) scale(1.05)`;
+      });
+      el.addEventListener('mouseleave', e => {
+        el.children[0].style.transform = `perspective(1000px) rotateX(0) rotateY(0) scale(1)`;
+      });
+    });
+
+    /* ── TYPEWRITER SCROLL ── */
+    const pSec = document.getElementById('philosophy');
+    const pTxtNode = document.getElementById('philText');
+    const fullText = pTxtNode.dataset.text;
+    window.addEventListener('scroll', () => {
+      const rect = pSec.getBoundingClientRect();
+      // Map scroll progress inside this section
+      if (rect.top < window.innerHeight && rect.bottom > 0) {
+        let prog = 1 - (rect.bottom / (window.innerHeight + rect.height));
+        prog = Math.max(0, Math.min(1, prog * 1.5)); // speed it up slightly
+        const chars = Math.floor(prog * fullText.length);
+        pTxtNode.textContent = fullText.substring(0, chars);
+      }
+    });
+
+    /* ── STAGGERED REVEALS & PARALLAX WATERMARKS ── */
+    const obs = new IntersectionObserver(ents => {
+      ents.forEach(e => { if (e.isIntersecting) { e.target.classList.add('vis'); obs.unobserve(e.target); } });
+    }, { threshold: 0.2 });
+    document.querySelectorAll('.reveal-target').forEach(el => obs.observe(el));
+
+    window.addEventListener('scroll', () => {
+      const y = window.scrollY;
+      document.querySelectorAll('.watermark').forEach(w => {
+        const speed = parseFloat(w.dataset.speed);
+        w.style.transform = `translateY(${y * speed}px)`;
+      });
+    });
+
+    /* ── SLIDE-OVER BOOKING ── */
+    const bp = document.getElementById('bookPanel');
+    const bo = document.getElementById('bookOverlay');
+    function openBooking(e) { e.preventDefault(); bp.classList.add('open'); bo.classList.add('open'); }
+    function closeBooking() { bp.classList.remove('open'); bo.classList.remove('open'); }
+    function handleBook(e) {
+      e.preventDefault();
+      const bleed = document.getElementById('inkBleed');
+      const txt = document.getElementById('btnText');
+      bleed.classList.add('active');
+      setTimeout(() => { txt.textContent = "Confirmed."; }, 300);
+      setTimeout(() => { closeBooking(); bleed.classList.remove('active'); txt.textContent = "Confirm Appointment"; }, 2500);
+    }
+
+    /* ── RITUALS: Lens-distortion on hover ── */
+    const ritVisual = document.getElementById('ritualsVisual');
+    if (ritVisual) {
+      document.querySelectorAll('[data-rit]').forEach(item => {
+        item.addEventListener('mouseenter', () => {
+          const shift = (Math.random() - 0.5) * 20;
+          ritVisual.style.backgroundPosition = `calc(50% + ${shift}px) calc(50% + ${shift}px)`;
+        });
+        item.addEventListener('mouseleave', () => {
+          ritVisual.style.backgroundPosition = '';
+        });
+      });
+    }
+
+    /* ── SANCTUARY: Pulsing dot card ── */
+    const kuraDot = document.getElementById('kuraDot');
+    const sancCard = document.getElementById('sancCard');
+    if (kuraDot && sancCard) {
+      kuraDot.addEventListener('mouseenter', () => { sancCard.classList.add('visible'); });
+      kuraDot.addEventListener('mouseleave', () => { sancCard.classList.remove('visible'); });
+    }
+
+    /* ── Rebind .mag targets for new pages ── */
+    function rebindMag() {
+      document.querySelectorAll('.mag').forEach(el => {
+        el.removeEventListener('mouseenter', magIn);
+        el.removeEventListener('mouseleave', magOut);
+        el.addEventListener('mouseenter', magIn);
+        el.addEventListener('mouseleave', magOut);
+      });
+    }
+    function magIn() { isHovering = true; blob.classList.add('magnetic'); }
+    function magOut() { isHovering = false; blob.classList.remove('magnetic'); }
+    rebindMag();
+
+  </script>
+</body>
+
+</html>
